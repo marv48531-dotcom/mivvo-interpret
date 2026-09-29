@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mivvo Interpret | Clear Medical Lab Insights</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#128c7e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mivvo">
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Tailwind CSS CDN for modern utility styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for medical icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      touch-action: manipulation;
+    }
+
+    /* Mivvo Custom Teal Gradients */
+    .bg-mivvo-gradient {
+      background: linear-gradient(135deg, #075e54 0%, #128c7e 50%, #0d9488 100%);
+    }
+
+    .bg-mivvo-dark {
+      background: linear-gradient(180deg, #064e3b 0%, #0f172a 100%);
+    }
+
+    .text-mivvo-teal {
+      color: #14b8a6;
+    }
+
+    .border-mivvo {
+      border-color: #128c7e;
+    }
+
+    /* Smooth transitions for Modal and Bottom Sheet */
+    .bottom-sheet {
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    }
+    .bottom-sheet.closed {
+      transform: translateY(100%);
+      opacity: 0;
+      pointer-events: none !important;
+    }
+    @media (min-width: 640px) {
+      .bottom-sheet.closed {
+        transform: translate(-50%, -45%) scale(0.95) !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      .bottom-sheet:not(.closed) {
+        transform: translate(-50%, -50%) scale(1) !important;
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+
+    /* Overlay */
+    .backdrop-fade {
+      transition: opacity 0.3s ease;
+    }
+
+    /* Persona display rules */
+    body[data-persona="patient"] .clinician-only { display: none !important; }
+    body[data-persona="clinician"] .patient-only { display: none !important; }
+
+    /* Custom range indicator bar */
+    .range-bar {
+      height: 8px;
+      border-radius: 4px;
+      position: relative;
+      background: #334155;
+    }
+    .range-pin {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 3px solid #0f172a;
+      position: absolute;
+      top: -3px;
+      transform: translateX(-50%);
+      transition: left 0.4s ease;
+    }
+  </style>
+</head>
+<body data-persona="patient" class="flex flex-col min-h-screen">
+
+  <!-- GATEWAY PERSONA PORTAL OVERLAY -->
+  <div id="mivvo-gateway" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md overflow-y-auto transition-all duration-300">
+    <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl my-auto">
+      <div class="w-16 h-16 bg-mivvo-gradient rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-teal-900/40">
+        <span class="font-extrabold text-3xl text-white">M</span>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-white mb-2">MIVVO <span class="text-teal-400 font-light">Interpret</span></h1>
+      <p id="gtwSub" class="text-slate-400 text-sm mb-6">Bridging the gap between raw laboratory data and patient understanding.</p>
+
+      <!-- Language Selector inside Gateway -->
+      <div class="flex justify-center items-center gap-2 mb-6 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 w-fit mx-auto text-xs">
+        <span class="text-slate-400 font-semibold px-2"><i class="fa-solid fa-language text-teal-400"></i> Language:</span>
+        <button type="button" onclick="setLanguage('en')" id="langBtnEn" class="px-3 py-1.5 rounded-lg font-bold bg-teal-600 text-white transition-all">English</button>
+        <button type="button" onclick="setLanguage('de')" id="langBtnDe" class="px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all">Deutsch (DE)</button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Patient Gateway Card -->
+        <button type="button" onclick="setPersona('patient')" class="w-full text-left p-5 rounded-2xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 hover:border-teal-500/50 transition-all duration-200 group active:scale-[0.98]">
+          <div class="flex items-start gap-4">
+            <div class="p-3 bg-teal-500/10 rounded-xl text-teal-400 group-hover:bg-teal-500 group-hover:text-white transition-colors">
+              <i class="fa-solid fa-user text-xl"></i>
+            </div>
+            <div>
+              <h3 id="gtwPatientTitle" class="font-bold text-white text-base">I am a Patient</h3>
+              <p id="gtwPatientSub" class="text-slate-400 text-xs mt-1">Receive simple, comforting explanations and questions for your doctor.</p>
+            </div>
+          </div>
+        </button>
+
+        <!-- Clinician Gateway Card -->
+        <button type="button" onclick="setPersona('clinician')" class="w-full text-left p-5 rounded-2xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 hover:border-teal-500/50 transition-all duration-200 group active:scale-[0.98]">
+          <div class="flex items-start gap-4">
+            <div class="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+              <i class="fa-solid fa-user-md text-xl"></i>
+            </div>
+            <div>
+              <h3 id="gtwClinicianTitle" class="font-bold text-white text-base">I am a Clinician</h3>
+              <p id="gtwClinicianSub" class="text-slate-400 text-xs mt-1">Access rapid reference thresholds and auto-formatted EHR summary tools.</p>
+            </div>
+          </div>
+        </button>
+      </div>
+      
+      <p id="gtwFooter" class="text-[11px] text-slate-500 mt-6">You can switch modes anytime at the top of the interface.</p>
+    </div>
+  </div>
+
+  <!-- APP HEADER -->
+  <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-mivvo-gradient rounded-xl flex items-center justify-center font-extrabold text-white text-lg shadow-md shadow-teal-950">
+          M
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-tight">MIVVO <span class="text-teal-400 font-normal">Interpret</span></h1>
+          <span id="personaBadge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-950 text-teal-300 border border-teal-800/60 uppercase tracking-wider">
+            Patient Portal
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Language Switcher in Header -->
+        <button type="button" onclick="toggleLanguage()" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 transition-colors flex items-center gap-1.5 active:scale-95">
+          <i class="fa-solid fa-globe"></i>
+          <span id="currentLangTag">EN</span>
+        </button>
+
+        <button type="button" id="pwaInstallBtn" onclick="triggerPWAInstall()" class="text-xs font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md shadow-teal-950 flex items-center gap-1.5 transition-transform active:scale-95">
+          <i class="fa-solid fa-mobile-screen-button"></i>
+          <span id="hdrInstallBtnText">Install App</span>
+        </button>
+
+        <button type="button" onclick="showGateway()" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-2 active:scale-95">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span id="hdrSwitchBtn" class="hidden sm:inline">Switch Mode</span>
+        </button>
+
+        <button type="button" onclick="openPrivacyModal()" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-teal-950/80 hover:bg-teal-900 text-teal-300 border border-teal-800/80 flex items-center gap-2 transition-colors active:scale-95">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span id="hdrPrivacyBtn" class="hidden sm:inline">Privacy</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+
+    <!-- OCR LAB SCANNER BANNER -->
+    <div class="bg-gradient-to-r from-teal-950 via-slate-900 to-slate-900 border border-teal-500/40 rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden group">
+      <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl group-hover:bg-teal-500/20 transition-all"></div>
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+        <div class="space-y-1">
+          <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-[11px] font-bold uppercase tracking-wider">
+            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> <span id="ocrBadgeText">Vision Extraction (OCR)</span>
+          </div>
+          <h2 id="ocrTitleText" class="text-xl sm:text-2xl font-extrabold text-white">Scan Paper Lab Report</h2>
+          <p id="ocrSubText" class="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">Upload a clear photo of your lab slip. Gemini Vision AI extracts test values with zero server retention.</p>
+        </div>
+        <button type="button" onclick="openOcrModal()" class="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-mivvo-gradient hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-teal-950 flex items-center justify-center gap-2 whitespace-nowrap transition-transform active:scale-95 cursor-pointer">
+          <i class="fa-solid fa-camera"></i>
+          <span id="ocrBtnText">Upload / Scan Lab</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SECTION 1: PARAMETER SELECTION CARD -->
+    <div id="selectionCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+      <div>
+        <h2 id="selectHeading" class="text-xl sm:text-2xl font-bold text-white">Select Parameter for Interpretation</h2>
+        <p id="selectSubheading" class="text-slate-400 text-sm mt-1">Choose a test to analyze using our 3-part clinical context framework.</p>
+      </div>
+
+      <!-- Quick Category Tabs -->
+      <div class="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto text-xs font-semibold text-slate-400">
+        <button type="button" class="px-3 py-1.5 rounded-lg bg-teal-950 text-teal-300 border border-teal-800 whitespace-nowrap" id="tabAll">All Parameters</button>
+        <span class="text-slate-700">|</span>
+        <span id="tabChemLabel" class="text-slate-500 uppercase tracking-wider text-[10px]">Clinical Chemistry & Haematology</span>
+      </div>
+
+      <!-- Quick Test Select Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <!-- Blood Pressure -->
+        <button type="button" onclick="openTestModal('blood_pressure')" class="p-5 rounded-2xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-teal-500/80 text-left transition-all group flex flex-col justify-between h-36 active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-3">
+            <span class="w-10 h-10 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl">🫀</span>
+            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-teal-400 text-xs transition-colors"></i>
+          </div>
+          <div>
+            <h3 id="cardBpTitle" class="font-bold text-white text-sm sm:text-base">Blood Pressure</h3>
+            <p id="cardBpSub" class="text-slate-400 text-xs mt-0.5">SYS / DIA / Pulse Cuff</p>
+          </div>
+        </button>
+
+        <!-- Hemoglobin -->
+        <button type="button" onclick="openTestModal('hemoglobin')" class="p-5 rounded-2xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-teal-500/80 text-left transition-all group flex flex-col justify-between h-36 active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-3">
+            <span class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-xl">🩸</span>
+            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-teal-400 text-xs transition-colors"></i>
+          </div>
+          <div>
+            <h3 id="cardHbTitle" class="font-bold text-white text-sm sm:text-base">Hemoglobin (Hb)</h3>
+            <p id="cardHbSub" class="text-slate-400 text-xs mt-0.5">g/dL or % Sahli Tube</p>
+          </div>
+        </button>
+
+        <!-- Fasting Blood Sugar -->
+        <button type="button" onclick="openTestModal('glucose')" class="p-5 rounded-2xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-teal-500/80 text-left transition-all group flex flex-col justify-between h-36 active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-3">
+            <span class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl">🍬</span>
+            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-teal-400 text-xs transition-colors"></i>
+          </div>
+          <div>
+            <h3 id="cardGluTitle" class="font-bold text-white text-sm sm:text-base">Fasting Glucose (FBS)</h3>
+            <p id="cardGluSub" class="text-slate-400 text-xs mt-0.5">Nüchternblutzucker (mg/dL)</p>
+          </div>
+        </button>
+
+        <!-- Total Cholesterol -->
+        <button type="button" onclick="openTestModal('cholesterol')" class="p-5 rounded-2xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-teal-500/80 text-left transition-all group flex flex-col justify-between h-36 active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-3">
+            <span class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl">🧈</span>
+            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-teal-400 text-xs transition-colors"></i>
+          </div>
+          <div>
+            <h3 id="cardCholTitle" class="font-bold text-white text-sm sm:text-base">Total Cholesterol</h3>
+            <p id="cardCholSub" class="text-slate-400 text-xs mt-0.5">Lipid Baseline (mg/dL)</p>
+          </div>
+        </button>
+
+        <!-- Serum Creatinine -->
+        <button type="button" onclick="openTestModal('creatinine')" class="p-5 rounded-2xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-teal-500/80 text-left transition-all group flex flex-col justify-between h-36 active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-3">
+            <span class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl">🧪</span>
+            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-teal-400 text-xs transition-colors"></i>
+          </div>
+          <div>
+            <h3 id="cardCreatTitle" class="font-bold text-white text-sm sm:text-base">Serum Creatinine</h3>
+            <p id="cardCreatSub" class="text-slate-400 text-xs mt-0.5">Kidney & eGFR Marker</p>
+          </div>
+        </button>
+      </div>
+
+      <!-- Medical Disclaimer Callout -->
+      <div class="p-4 rounded-xl bg-slate-950/80 border border-amber-900/40 text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="flex items-start gap-3">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400 text-base mt-0.5"></i>
+          <div>
+            <span id="discPolicyTitle" class="font-bold text-amber-300 block mb-0.5">The Mivvo Educational Safety Policy</span>
+            <p id="discPolicySub" class="text-slate-400 text-[11px]">Mivvo Interpret clarifies lab terminology for educational collaboration. It does not provide medical diagnoses or replace physician judgment.</p>
+          </div>
+        </div>
+        <button type="button" onclick="openDisclaimerModal()" id="discPolicyBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-700 whitespace-nowrap active:scale-95">
+          Read Policy
+        </button>
+      </div>
+    </div>
+
+    <!-- SECTION 2: INTERPRETATION RESULT CARD (Hidden initially) -->
+    <div id="resultCard" class="hidden space-y-6">
+      
+      <!-- Back / Reset Navigation Button -->
+      <div class="flex items-center justify-between">
+        <button type="button" onclick="resetInterpreter()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-colors active:scale-95">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span id="btnSelectAnother">Select Another Test</span>
+        </button>
+        <span id="resultMetaBadge" class="text-xs font-semibold text-teal-400 uppercase tracking-wider bg-teal-950/80 px-3 py-1 rounded-full border border-teal-800/80"></span>
+      </div>
+
+      <!-- CLINICIAN-ONLY SUMMARY BOX -->
+      <div class="clinician-only bg-emerald-950/40 border border-emerald-800/60 rounded-2xl p-5 text-emerald-200">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 font-bold text-emerald-300 text-sm">
+            <i class="fa-solid fa-user-md"></i>
+            <span id="ehrNoteHeader">Clinician EHR Note Generator</span>
+          </div>
+          <button type="button" onclick="copyEHRNote()" class="text-xs px-2.5 py-1 rounded bg-emerald-900 hover:bg-emerald-800 text-emerald-100 font-semibold transition-colors flex items-center gap-1.5 active:scale-95">
+            <i class="fa-regular fa-copy"></i>
+            <span id="copyNoteBtnText">Copy Note</span>
+          </button>
+        </div>
+        <pre id="ehrNoteText" class="whitespace-pre-wrap font-mono text-xs bg-slate-950/60 p-3 rounded-xl border border-emerald-900/50 text-emerald-100 overflow-x-auto"></pre>
+      </div>
+
+      <!-- PATIENT 3-PART FRAMEWORK OUTPUT CARD -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+        <!-- HEADER / STATUS BASELINE (PART 1) -->
+        <div id="statusBanner" class="p-6 border-b border-slate-800 bg-slate-800/50">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <span id="lblPart1" class="text-xs font-bold uppercase tracking-wider text-teal-400">Framework Part 1: Diagnostic Status</span>
+              <h3 id="statusTitle" class="text-2xl font-black text-white mt-0.5">--</h3>
+            </div>
+            <div id="statusPill" class="self-start sm:self-auto px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider">
+              --
+            </div>
+          </div>
+
+          <!-- Dynamic Visual Range Bar -->
+          <div class="mt-4 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+            <div class="flex justify-between text-xs font-semibold text-slate-400 mb-2">
+              <span id="rangeMin">Min</span>
+              <span id="rangeCurrent" class="text-teal-300 font-bold">Current</span>
+              <span id="rangeMax">Max</span>
+            </div>
+            <div class="range-bar">
+              <div id="rangePin" class="range-pin" style="left: 50%;"></div>
+            </div>
+            <p id="baselineText" class="text-xs text-slate-300 mt-3 leading-relaxed"></p>
+          </div>
+        </div>
+
+        <!-- PATIENT CONTEXT (PART 2) -->
+        <div class="p-6 border-b border-slate-800 bg-slate-900">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <h4 id="lblPart2" class="font-bold text-white text-base">Patient Context <span class="text-slate-500 font-normal text-xs">(Everyday Language)</span></h4>
+          </div>
+          <p id="contextText" class="text-sm text-slate-300 leading-relaxed font-normal"></p>
+        </div>
+
+        <!-- CLINICAL PARTNERSHIP PROMPTS (PART 3) -->
+        <div class="p-6 bg-slate-900/80">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-clipboard-question"></i>
+              </div>
+              <h4 id="lblPart3" class="font-bold text-white text-base">Questions for Your Doctor</h4>
+            </div>
+            <button type="button" onclick="copyQuestions()" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 transition-colors flex items-center gap-1.5 active:scale-95">
+              <i class="fa-regular fa-copy"></i>
+              <span id="copyQuestionsBtnText">Copy Questions</span>
+            </button>
+          </div>
+
+          <ul id="questionsList" class="space-y-2.5"></ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL BACKDROP -->
+  <div id="modalBackdrop" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 hidden backdrop-fade opacity-0" onclick="closeAllModals()"></div>
+
+  <!-- DATA EXTRACTION (OCR) MODAL -->
+  <div id="ocrModal" class="fixed bottom-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 left-0 right-0 max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 z-50 bottom-sheet closed hidden shadow-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
+          <i class="fa-solid fa-file-medical text-lg"></i>
+        </div>
+        <div>
+          <h3 id="ocrModalTitle" class="text-lg font-bold text-white">OCR Data Extraction</h3>
+          <p class="text-xs text-slate-400">Powered by Gemini AI Multimodal Vision</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeOcrModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs active:scale-95">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="space-y-4">
+      <div id="ocrDropzone" onclick="document.getElementById('ocrFileInput').click()" class="border-2 border-dashed border-slate-700 hover:border-teal-500 bg-slate-950/60 rounded-2xl p-6 text-center cursor-pointer transition-colors group">
+        <input type="file" id="ocrFileInput" accept="image/*" class="hidden" onchange="handleOcrFileSelect(event)" />
+        <div id="ocrPreviewState">
+          <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 group-hover:text-teal-400 mb-2 transition-colors"></i>
+          <p class="text-xs font-semibold text-white">Click or Drag & Drop Lab Image</p>
+          <p class="text-[11px] text-slate-400 mt-1">Supports PNG, JPG, or paper lab slip photos</p>
+        </div>
+        <div id="ocrImagePreviewContainer" class="hidden">
+          <img id="ocrImagePreview" class="max-h-48 mx-auto rounded-lg border border-slate-700 object-contain" alt="Lab Preview" />
+          <p id="ocrFileName" class="text-xs text-teal-400 font-semibold mt-2 truncate"></p>
+        </div>
+      </div>
+
+      <div id="ocrStatusArea" class="hidden p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center gap-3">
+        <div class="animate-spin w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full"></div>
+        <span id="ocrStatusText" class="text-slate-300 font-medium">Analyzing lab text with Gemini AI OCR...</span>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="button" id="ocrScanBtn" onclick="executeGeminiOCR()" disabled class="w-full py-3 bg-mivvo-gradient opacity-50 cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95">
+          <i class="fa-solid fa-bolt"></i>
+          <span>Extract Lab Values</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIVACY & HIPAA COMPLIANCE MODAL -->
+  <div id="privacyModal" class="fixed bottom-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 left-0 right-0 max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 z-50 bottom-sheet closed hidden shadow-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+          <i class="fa-solid fa-user-shield text-lg"></i>
+        </div>
+        <div>
+          <h3 id="privModalTitle" class="text-lg font-bold text-white">Privacy & HIPAA Compliance</h3>
+          <p class="text-xs text-slate-400">Security safeguards & local data controls</p>
+        </div>
+      </div>
+      <button type="button" onclick="closePrivacyModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs active:scale-95">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="space-y-4 text-xs text-slate-300">
+      <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-lock text-emerald-400"></i> Zero Server Retention (Ephemeral)
+          </span>
+          <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold text-[10px]">ACTIVE</span>
+        </div>
+        <p class="text-slate-400 text-[11px]">Lab values and scanned images are processed instantly in-memory. Mivvo stores zero Protected Health Information (PHI) on permanent cloud servers.</p>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h4 class="font-bold text-white">Anonymize Patient Identity</h4>
+            <p class="text-slate-400 text-[10px]">Strip age/sex metadata from exported clinical notes</p>
+          </div>
+          <input type="checkbox" id="anonymizeToggle" onchange="toggleAnonymization()" class="w-4 h-4 accent-teal-500 rounded cursor-pointer" />
+        </div>
+      </div>
+
+      <button type="button" onclick="clearSessionData()" class="w-full py-2.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/80 text-rose-200 font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 active:scale-95">
+        <i class="fa-solid fa-trash-can"></i>
+        <span>Purge Local Session Cache</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER STRATEGY MODAL -->
+  <div id="disclaimerModal" class="fixed bottom-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 left-0 right-0 max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 z-50 bottom-sheet closed hidden shadow-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+          <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Educational Disclaimer</h3>
+          <p class="text-xs text-slate-400">Important Safety Information</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeDisclaimerModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs active:scale-95">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+      <p>Mivvo Interpret is designed strictly as an educational and communication tool to help patients understand common medical laboratory terms and reference ranges.</p>
+      <p class="p-3 bg-amber-950/40 border border-amber-800/50 rounded-xl text-amber-200">
+        <strong>Notice:</strong> This software does NOT provide medical advice, diagnosis, or treatment plans. Always consult a licensed healthcare professional regarding medical conditions or test results.
+      </p>
+      <button type="button" onclick="closeDisclaimerModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors mt-2 active:scale-95">
+        I Understand
+      </button>
+    </div>
+  </div>
+
+  <!-- PWA INSTALL INSTRUCTIONS MODAL -->
+  <div id="pwaModal" class="fixed bottom-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 left-0 right-0 max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 z-50 bottom-sheet closed hidden shadow-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
+          <i class="fa-solid fa-download text-lg"></i>
+        </div>
+        <div>
+          <h3 id="pwaModalTitle" class="text-lg font-bold text-white">Install Mivvo Interpret</h3>
+          <p class="text-xs text-slate-400">Add to your Home Screen for quick offline access</p>
+        </div>
+      </div>
+      <button type="button" onclick="closePwaInstructionsModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs active:scale-95">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="space-y-3 text-xs text-slate-300">
+      <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+        <div class="flex items-center gap-2 font-bold text-teal-400">
+          <i class="fa-brands fa-apple text-sm"></i>
+          <span>iOS / Safari (iPhone & iPad)</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          1. Tap the <strong class="text-white"><i class="fa-solid fa-share-nodes"></i> Share</strong> button in Safari's bottom toolbar.<br>
+          2. Scroll down and tap <strong class="text-white"><i class="fa-regular fa-square-plus"></i> Add to Home Screen</strong>.<br>
+          3. Tap <strong class="text-teal-300">Add</strong> to launch Mivvo as a standalone app!
+        </p>
+      </div>
+
+      <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+        <div class="flex items-center gap-2 font-bold text-emerald-400">
+          <i class="fa-brands fa-android text-sm"></i>
+          <span>Android / Chrome</span>
+        </div>
+        <p class="text-slate-400 text-[11px] leading-relaxed">
+          1. Tap the <strong class="text-white"><i class="fa-solid fa-ellipsis-vertical"></i> Menu</strong> icon in the top right.<br>
+          2. Select <strong class="text-white"><i class="fa-solid fa-mobile-screen"></i> Install App</strong> or <strong class="text-white">Add to Home screen</strong>.<br>
+          3. Confirm installation.
+        </p>
+      </div>
+
+      <button type="button" onclick="closePwaInstructionsModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95">
+        Got it
+      </button>
+    </div>
+  </div>
+
+  <!-- TEST DATA INPUT BOTTOM SHEET -->
+  <div id="bottomSheet" class="fixed bottom-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 left-0 right-0 max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl p-6 z-50 bottom-sheet closed hidden shadow-2xl">
+    <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-60 sm:hidden"></div>
+
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h3 id="modalTitle" class="text-xl font-bold text-white">Enter Test Data</h3>
+        <p id="modalSub" class="text-xs text-slate-400 mt-0.5">Input reading parameters to generate explanation.</p>
+      </div>
+      <button type="button" onclick="closeTestModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs active:scale-95">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- FORM INPUTS -->
+    <form id="interpreterForm" onsubmit="processInterpretation(event)" class="space-y-4">
+      <div id="formFields" class="space-y-4"></div>
+
+      <!-- Common Demographic Parameters -->
+      <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+        <div>
+          <label id="lblSex" class="block text-xs font-semibold text-slate-400 mb-1">Biological Sex</label>
+          <select id="patientSex" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+
+        <div>
+          <label id="lblAge" class="block text-xs font-semibold text-slate-400 mb-1">Patient Age</label>
+          <input type="number" id="patientAge" placeholder="e.g. 35" value="35" min="1" max="120" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+        </div>
+      </div>
+
+      <button type="submit" id="btnInterpretSubmit" class="w-full py-3.5 px-4 bg-mivvo-gradient hover:opacity-95 text-white font-bold text-sm rounded-xl shadow-lg shadow-teal-950 transition-all mt-4 active:scale-95">
+        Interpret Result
+      </button>
+    </form>
+  </div>
+
+  <!-- APPLICATION LOGIC JS -->
+  <script>
+    let activeTestKey = '';
+    let currentPersonaMode = 'patient';
+    let currentLang = 'en';
+    let currentOcrBase64 = null;
+    let isAnonymized = false;
+    let deferredPrompt = null;
+
+    const i18n = {
+      en: {
+        gtwSub: "Bridging the gap between raw laboratory data and patient understanding.",
+        gtwPatientTitle: "I am a Patient",
+        gtwPatientSub: "Receive simple, comforting explanations and questions for your doctor.",
+        gtwClinicianTitle: "I am a Clinician",
+        gtwClinicianSub: "Access rapid reference thresholds and auto-formatted EHR summary tools.",
+        gtwFooter: "You can switch modes anytime at the top of the interface.",
+        hdrSwitchBtn: "Switch Mode",
+        hdrPrivacyBtn: "Privacy",
+        hdrInstallBtnText: "Install App",
+        badgePatient: "Patient Portal",
+        badgeClinician: "Clinician Portal",
+        ocrBadgeText: "Vision Extraction (OCR)",
+        ocrTitleText: "Scan Paper Lab Report",
+        ocrSubText: "Upload a clear photo of your lab slip. Gemini Vision AI extracts test values with zero server retention.",
+        ocrBtnText: "Upload / Scan Lab",
+        selectHeading: "Select Parameter for Interpretation",
+        selectSubheading: "Choose a test to analyze using our 3-part clinical context framework.",
+        tabAll: "All Parameters",
+        discPolicyTitle: "The Mivvo Educational Safety Policy",
+        discPolicySub: "Mivvo Interpret clarifies lab terminology for educational collaboration. It does not provide medical diagnoses or replace physician judgment.",
+        discPolicyBtn: "Read Policy",
+        btnSelectAnother: "Select Another Test",
+        lblPart1: "Framework Part 1: Diagnostic Status",
+        lblPart2: "Patient Context (Everyday Language)",
+        lblPart3: "Questions for Your Doctor",
+        copyQuestionsBtnText: "Copy Questions",
+        copyNoteBtnText: "Copy Note",
+        cardBpTitle: "Blood Pressure",
+        cardBpSub: "SYS / DIA / Pulse Cuff",
+        cardHbTitle: "Hemoglobin (Hb)",
+        cardHbSub: "g/dL or % Sahli Tube",
+        cardGluTitle: "Fasting Glucose (FBS)",
+        cardGluSub: "Nüchternblutzucker (mg/dL)",
+        cardCholTitle: "Total Cholesterol",
+        cardCholSub: "Lipid Baseline (mg/dL)",
+        cardCreatTitle: "Serum Creatinine",
+        cardCreatSub: "Kidney & eGFR Marker"
+      },
+      de: {
+        gtwSub: "Überbrückung der Lücke zwischen Laborwerten und dem Verständnis der Patienten.",
+        gtwPatientTitle: "Ich bin Patient/in",
+        gtwPatientSub: "Verständliche, beruhigende Erklärungen und Fragen für Ihren Arzt.",
+        gtwClinicianTitle: "Ich bin Ärztin/Arzt",
+        gtwClinicianSub: "Schnellzugriff auf Referenzwerte und automatische Formulare für die Krankenakte.",
+        gtwFooter: "Sie können den Modus jederzeit oben in der Benutzeroberfläche wechseln.",
+        hdrSwitchBtn: "Modus wechseln",
+        hdrPrivacyBtn: "Datenschutz",
+        hdrInstallBtnText: "App installieren",
+        badgePatient: "Patientenportal",
+        badgeClinician: "Arztportal",
+        ocrBadgeText: "KI-Texterkennung (OCR)",
+        ocrTitleText: "Laborbefund scannen",
+        ocrSubText: "Laden Sie ein Foto Ihres Laborbefunds hoch. Die KI liest Werte ohne Speicherung aus.",
+        ocrBtnText: "Befund hochladen / scannen",
+        selectHeading: "Parameter zur Interpretation auswählen",
+        selectSubheading: "Wählen Sie einen Laborwert für unsere 3-stufige klinische Analyse.",
+        tabAll: "Alle Parameter",
+        discPolicyTitle: "Mivvo Sicherheitspolice",
+        discPolicySub: "Mivvo Interpret dient der Bildungsförderung und dem Arzt-Patienten-Gespräch. Es ersetzt keine ärztliche Diagnose.",
+        discPolicyBtn: "Richtlinie lesen",
+        btnSelectAnother: "Weitere Analyse wählen",
+        lblPart1: "Teil 1: Diagnostischer Status",
+        lblPart2: "Patientenkontext (Einfache Sprache)",
+        lblPart3: "Fragen für Ihren Arzt",
+        copyQuestionsBtnText: "Fragen kopieren",
+        copyNoteBtnText: "EHR-Notiz kopieren",
+        cardBpTitle: "Blutdruck",
+        cardBpSub: "SYS / DIA / Puls",
+        cardHbTitle: "Hämoglobin (Hb)",
+        cardHbSub: "g/dL oder % Sahli",
+        cardGluTitle: "Nüchternblutzucker",
+        cardGluSub: "Glucose nüchtern (mg/dL)",
+        cardCholTitle: "Gesamtcholesterin",
+        cardCholSub: "Lipidprofil (mg/dL)",
+        cardCreatTitle: "Serum-Kreatinin",
+        cardCreatSub: "Nierenwert & eGFR"
+      }
+    };
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const langTag = document.getElementById('currentLangTag');
+      if (langTag) langTag.innerText = lang.toUpperCase();
+      
+      const btnEn = document.getElementById('langBtnEn');
+      const btnDe = document.getElementById('langBtnDe');
+      if (btnEn && btnDe) {
+        if (lang === 'de') {
+          btnDe.className = 'px-3 py-1.5 rounded-lg font-bold bg-teal-600 text-white transition-all';
+          btnEn.className = 'px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all';
+        } else {
+          btnEn.className = 'px-3 py-1.5 rounded-lg font-bold bg-teal-600 text-white transition-all';
+          btnDe.className = 'px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all';
+        }
+      }
+
+      const dict = i18n[lang];
+      for (let key in dict) {
+        const elem = document.getElementById(key);
+        if (elem) elem.innerText = dict[key];
+      }
+
+      const badge = document.getElementById('personaBadge');
+      if (badge) {
+        badge.innerText = currentPersonaMode === 'patient' ? dict.badgePatient : dict.badgeClinician;
+      }
+    }
+
+    function toggleLanguage() {
+      setLanguage(currentLang === 'en' ? 'de' : 'en');
+    }
+
+    function setPersona(persona) {
+      currentPersonaMode = persona;
+      document.body.setAttribute('data-persona', persona);
+      
+      const badge = document.getElementById('personaBadge');
+      const dict = i18n[currentLang];
+      if (persona === 'patient') {
+        badge.innerText = dict.badgePatient;
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-950 text-teal-300 border border-teal-800/60 uppercase tracking-wider';
+      } else {
+        badge.innerText = dict.badgeClinician;
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800/60 uppercase tracking-wider';
+      }
+
+      const gateway = document.getElementById('mivvo-gateway');
+      if (gateway) {
+        gateway.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => gateway.classList.add('hidden'), 300);
+      }
+    }
+
+    function showGateway() {
+      const gateway = document.getElementById('mivvo-gateway');
+      if (gateway) {
+        gateway.classList.remove('hidden', 'pointer-events-none');
+        setTimeout(() => gateway.classList.remove('opacity-0'), 10);
+      }
+    }
+
+    function openModalById(modalId) {
+      const allModals = ['ocrModal', 'privacyModal', 'disclaimerModal', 'pwaModal', 'bottomSheet'];
+      allModals.forEach(id => {
+        if (id !== modalId) {
+          const m = document.getElementById(id);
+          if (m) m.classList.add('hidden', 'closed');
+        }
+      });
+
+      const modal = document.getElementById(modalId);
+      const backdrop = document.getElementById('modalBackdrop');
+      if (!modal) return;
+
+      if (backdrop) backdrop.classList.remove('hidden');
+      modal.classList.remove('hidden');
+      
+      void modal.offsetWidth; // Trigger DOM reflow for CSS animations
+
+      if (backdrop) backdrop.classList.remove('opacity-0');
+      modal.classList.remove('closed');
+    }
+
+    function closeModalById(modalId) {
+      const modal = document.getElementById(modalId);
+      const backdrop = document.getElementById('modalBackdrop');
+      if (!modal) return;
+
+      modal.classList.add('closed');
+      if (backdrop) backdrop.classList.add('opacity-0');
+
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        if (backdrop) backdrop.classList.add('hidden');
+      }, 250);
+    }
+
+    function closeAllModals() {
+      const allModals = ['ocrModal', 'privacyModal', 'disclaimerModal', 'pwaModal', 'bottomSheet'];
+      allModals.forEach(id => closeModalById(id));
+    }
+
+    function openOcrModal() { openModalById('ocrModal'); }
+    function closeOcrModal() { closeModalById('ocrModal'); }
+
+    function openPrivacyModal() { openModalById('privacyModal'); }
+    function closePrivacyModal() { closeModalById('privacyModal'); }
+
+    function openDisclaimerModal() { openModalById('disclaimerModal'); }
+    function closeDisclaimerModal() { closeModalById('disclaimerModal'); }
+
+    function openPwaInstructionsModal() { openModalById('pwaModal'); }
+    function closePwaInstructionsModal() { closeModalById('pwaModal'); }
+
+    function toggleAnonymization() {
+      isAnonymized = document.getElementById('anonymizeToggle').checked;
+    }
+
+    function clearSessionData() {
+      currentOcrBase64 = null;
+      document.getElementById('ocrImagePreviewContainer').classList.add('hidden');
+      document.getElementById('ocrPreviewState').classList.remove('hidden');
+      const scanBtn = document.getElementById('ocrScanBtn');
+      scanBtn.disabled = true;
+      scanBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      closePrivacyModal();
+      resetInterpreter();
+    }
+
+    function generatePwaIcon(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, '#075e54');
+      grad.addColorStop(0.5, '#128c7e');
+      grad.addColorStop(1, '#0d9488');
+      ctx.fillStyle = grad;
+      
+      const radius = size * 0.22;
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(size - radius, 0);
+      ctx.quadraticCurveTo(size, 0, size, radius);
+      ctx.lineTo(size, size - radius);
+      ctx.quadraticCurveTo(size, size, size - radius, size);
+      ctx.lineTo(radius, size);
+      ctx.quadraticCurveTo(0, size, 0, size - radius);
+      ctx.lineTo(0, radius);
+      ctx.quadraticCurveTo(0, 0, radius, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `900 ${Math.round(size * 0.52)}px "Plus Jakarta Sans", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('M', size / 2, size / 2 + size * 0.02);
+
+      return canvas.toDataURL('image/png');
+    }
+
+    function setupPWA() {
+      const icon192 = generatePwaIcon(192);
+      const icon512 = generatePwaIcon(512);
+
+      const appleIcon = document.getElementById('appleTouchIcon');
+      if (appleIcon) appleIcon.href = icon192;
+
+      const manifest = {
+        "name": "Mivvo Interpret",
+        "short_name": "Mivvo",
+        "description": "Clear Medical Lab Insights – Understand your lab results easily",
+        "start_url": "./",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#128c7e",
+        "orientation": "portrait",
+        "icons": [
+          { "src": icon192, "sizes": "192x192", "type": "image/png" },
+          { "src": icon512, "sizes": "512x512", "type": "image/png" }
+        ]
+      };
+
+      const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/manifest+json' });
+      const manifestUrl = URL.createObjectURL(manifestBlob);
+      
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    function triggerPWAInstall() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          deferredPrompt = null;
+        });
+      } else {
+        openPwaInstructionsModal();
+      }
+    }
+
+    function handleOcrFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const fullDataUrl = e.target.result;
+        currentOcrBase64 = fullDataUrl.split(',')[1];
+
+        document.getElementById('ocrImagePreview').src = fullDataUrl;
+        document.getElementById('ocrFileName').innerText = file.name;
+        document.getElementById('ocrPreviewState').classList.add('hidden');
+        document.getElementById('ocrImagePreviewContainer').classList.remove('hidden');
+
+        const scanBtn = document.getElementById('ocrScanBtn');
+        scanBtn.disabled = false;
+        scanBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function executeGeminiOCR() {
+      if (!currentOcrBase64) return;
+
+      const statusArea = document.getElementById('ocrStatusArea');
+      const statusText = document.getElementById('ocrStatusText');
+      const scanBtn = document.getElementById('ocrScanBtn');
+
+      statusArea.classList.remove('hidden');
+      statusText.innerText = "Analyzing document text via Gemini Vision AI...";
+      scanBtn.disabled = true;
+
+      const prompt = `Analyze this medical lab report image. Identify if it contains Blood Pressure, Hemoglobin (Hb), Fasting Glucose (FBS), Serum Creatinine, or Total Cholesterol.
+Extract the relevant numerical values. Return a JSON object with this exact structure:
+{
+  "detected": true,
+  "testType": "blood_pressure" | "hemoglobin" | "cholesterol" | "glucose" | "creatinine" | "unknown",
+  "sys": number or null,
+  "dia": number or null,
+  "pulse": number or null,
+  "hbValue": number or null,
+  "hbUnit": "g/dL" or "percent",
+  "cholValue": number or null,
+  "gluValue": number or null,
+  "creatValue": number or null
+}`;
+
+      try {
+        const apiKey = ""; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        const payload = {
+          contents: [{
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: currentOcrBase64
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        };
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        const rawJson = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!rawJson) {
+          throw new Error("Could not extract legible data from this image.");
+        }
+
+        const parsed = JSON.parse(rawJson);
+        statusArea.classList.add('hidden');
+        closeOcrModal();
+
+        if (parsed.testType === 'blood_pressure' && parsed.sys && parsed.dia) {
+          activeTestKey = 'blood_pressure';
+          renderOutputFramework(interpretBloodPressure(parsed.sys, parsed.dia, parsed.pulse, 'male', 35));
+        } else if (parsed.testType === 'hemoglobin' && parsed.hbValue) {
+          activeTestKey = 'hemoglobin';
+          renderOutputFramework(interpretHemoglobin(parsed.hbValue, parsed.hbUnit || 'g/dL', 'male', 35));
+        } else if (parsed.testType === 'glucose' && parsed.gluValue) {
+          activeTestKey = 'glucose';
+          renderOutputFramework(interpretGlucose(parsed.gluValue, 'male', 35));
+        } else if (parsed.testType === 'creatinine' && parsed.creatValue) {
+          activeTestKey = 'creatinine';
+          renderOutputFramework(interpretCreatinine(parsed.creatValue, 'male', 35));
+        } else if (parsed.testType === 'cholesterol' && parsed.cholValue) {
+          activeTestKey = 'cholesterol';
+          renderOutputFramework(interpretCholesterol(parsed.cholValue, 'male', 35));
+        } else {
+          openTestModal('blood_pressure');
+        }
+
+      } catch (err) {
+        statusArea.classList.add('hidden');
+        scanBtn.disabled = false;
+        openModalById('disclaimerModal');
+      }
+    }
+
+    function openTestModal(testKey) {
+      activeTestKey = testKey;
+      const fieldsContainer = document.getElementById('formFields');
+      const modalTitle = document.getElementById('modalTitle');
+
+      if (testKey === 'blood_pressure') {
+        modalTitle.innerText = currentLang === 'de' ? 'Blutdruckmessung eingeben' : 'Blood Pressure Cuff Readings';
+        fieldsContainer.innerHTML = `
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">SYS (Systolic - ${currentLang==='de'?'Oberer Wert':'Top Box'})</label>
+            <input type="number" id="bpSys" placeholder="e.g. 128" min="50" max="250" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">DIA (Diastolic - ${currentLang==='de'?'Unterer Wert':'Middle Box'})</label>
+            <input type="number" id="bpDia" placeholder="e.g. 82" min="30" max="150" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Pulse / Heart Rate (BPM)</label>
+            <input type="number" id="bpPulse" placeholder="e.g. 72" min="30" max="220" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+          </div>
+        `;
+      } else if (testKey === 'hemoglobin') {
+        modalTitle.innerText = currentLang === 'de' ? 'Hämoglobin-Wert (Hb)' : 'Hemoglobin (Hb) Lab Result';
+        fieldsContainer.innerHTML = `
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Hemoglobin Value</label>
+            <input type="number" step="0.1" id="hbValue" placeholder="e.g. 10.5" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Measurement Unit</label>
+            <select id="hbUnit" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500">
+              <option value="g/dL">g/dL (Automated Lab Standard)</option>
+              <option value="percent">% Sahli (Manual Visual Tube)</option>
+            </select>
+          </div>
+        `;
+      } else if (testKey === 'glucose') {
+        modalTitle.innerText = currentLang === 'de' ? 'Nüchternblutzucker (FBS)' : 'Fasting Blood Sugar (FBS)';
+        fieldsContainer.innerHTML = `
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Fasting Glucose Value (mg/dL)</label>
+            <input type="number" id="gluValue" placeholder="e.g. 105" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+            <p class="text-[11px] text-teal-400 mt-1 font-medium"><i class="fa-solid fa-clock text-[10px]"></i> ${currentLang==='de'?'Wichtig: Erfordert 8–12 Stunden Nahrungskarenz (nüchtern).':'Note: Requires strict 8-12 hour overnight fasting.'}</p>
+          </div>
+        `;
+      } else if (testKey === 'creatinine') {
+        modalTitle.innerText = currentLang === 'de' ? 'Serum-Kreatinin Wert' : 'Serum Creatinine (Kidney Marker)';
+        fieldsContainer.innerHTML = `
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Creatinine Value (mg/dL)</label>
+            <input type="number" step="0.01" id="creatValue" placeholder="e.g. 1.1" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+          </div>
+        `;
+      } else if (testKey === 'cholesterol') {
+        modalTitle.innerText = currentLang === 'de' ? 'Gesamtcholesterin Wert' : 'Total Cholesterol Result';
+        fieldsContainer.innerHTML = `
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Total Cholesterol (mg/dL)</label>
+            <input type="number" id="cholValue" placeholder="e.g. 220" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-teal-500" />
+          </div>
+        `;
+      }
+
+      openModalById('bottomSheet');
+    }
+
+    function closeTestModal() {
+      closeModalById('bottomSheet');
+    }
+
+    function processInterpretation(event) {
+      event.preventDefault();
+
+      const sex = document.getElementById('patientSex').value;
+      const age = parseInt(document.getElementById('patientAge').value) || 35;
+
+      let resultData = {};
+
+      if (activeTestKey === 'blood_pressure') {
+        const sys = parseInt(document.getElementById('bpSys').value);
+        const dia = parseInt(document.getElementById('bpDia').value);
+        const pulse = parseInt(document.getElementById('bpPulse').value) || null;
+        resultData = interpretBloodPressure(sys, dia, pulse, sex, age);
+      } else if (activeTestKey === 'hemoglobin') {
+        const rawVal = parseFloat(document.getElementById('hbValue').value);
+        const unit = document.getElementById('hbUnit').value;
+        resultData = interpretHemoglobin(rawVal, unit, sex, age);
+      } else if (activeTestKey === 'glucose') {
+        const glu = parseFloat(document.getElementById('gluValue').value);
+        resultData = interpretGlucose(glu, sex, age);
+      } else if (activeTestKey === 'creatinine') {
+        const creat = parseFloat(document.getElementById('creatValue').value);
+        resultData = interpretCreatinine(creat, sex, age);
+      } else if (activeTestKey === 'cholesterol') {
+        const chol = parseFloat(document.getElementById('cholValue').value);
+        resultData = interpretCholesterol(chol, sex, age);
+      }
+
+      renderOutputFramework(resultData);
+      closeTestModal();
+    }
+
+    function interpretBloodPressure(sys, dia, pulse, sex, age) {
+      const isDe = currentLang === 'de';
+      let status = sys > 180 || dia > 120 ? (isDe ? 'Hypertonie-Krise' : 'Hypertensive Crisis') :
+                   (sys >= 140 || dia >= 90) ? (isDe ? 'Hypertonie Stufe 2' : 'Stage 2 Hypertension') :
+                   (sys >= 130 || dia >= 80) ? (isDe ? 'Hypertonie Stufe 1' : 'Stage 1 Hypertension') :
+                   (sys >= 120 && dia < 80) ? (isDe ? 'Erhöhter Blutdruck' : 'Elevated Blood Pressure') :
+                   (isDe ? 'Optimaler Blutdruck' : 'Normal & Optimal');
+
+      let pillBg = (sys > 180 || dia > 120) ? 'bg-red-600 text-white' :
+                   (sys >= 140 || dia >= 90) ? 'bg-orange-600 text-white' :
+                   (sys >= 130 || dia >= 80) ? 'bg-amber-600 text-white' :
+                   (sys >= 120 && dia < 80) ? 'bg-yellow-600 text-slate-900' : 'bg-emerald-600 text-white';
+
+      const patientId = isAnonymized ? 'ANONYMOUS' : `${sex.toUpperCase()}, Age ${age}`;
+
+      return {
+        title: isDe ? 'Blutdruck-Interpretation' : 'Blood Pressure Interpretation',
+        status: status,
+        pillBg: pillBg,
+        pinPercent: Math.min(Math.max(((sys - 90) / 100) * 100, 10), 95),
+        rangeMinText: '< 120/80',
+        rangeMaxText: '> 140/90',
+        baselineText: isDe ? `Messwert: ${sys}/${dia} mmHg. (Zielbereich nach ACC/AHA: <120/<80 mmHg).` : `Result: ${sys}/${dia} mmHg. Standard ACC/AHA baseline <120/<80 mmHg.`,
+        contextText: isDe 
+          ? `Der Blutdruck misst die Kraft des Blutes auf die Gefäßwände. Wichtiger Hinweis: Eine einzelne Messung ist keine medizinische Diagnose. Blutdruckwerte schwanken natürlich durch Stress, Koffein oder Bewegung. Richtige Messtechnik (5 Minuten Ruhe vorab, aufrechter Sitz) und wiederholte Protokolle über mehrere Tage liefern das klarste Bild.` 
+          : `Blood pressure reflects the force of blood against arterial walls. Key Note: A single reading is not a diagnosis. Blood pressure fluctuates naturally throughout the day due to stress, movement, or caffeine. Proper technique (resting 5 minutes before, feet flat) and repeated log entries over time provide the most reliable insight.`,
+        questions: isDe ? [
+          "Sollte ich ein regelmäßiges Blutdrucktagebuch für 1–2 Wochen führen?",
+          "Welche Lebensstiländerungen (Ernährung, Bewegung) sind jetzt am sinnvollsten?",
+          "Wann und wie oft empfehlen Sie eine Kontrolle?"
+        ] : [
+          "Should I keep a home blood pressure log over 1–2 weeks to track patterns?",
+          "What lifestyle steps (diet, exercise, stress reduction) can support optimal range?",
+          "When should we re-evaluate these readings together?"
+        ],
+        ehrNote: `MIVVO CLINICAL SUMMARY - BLOOD PRESSURE\nPatient: ${patientId}\nSYS/DIA: ${sys}/${dia} mmHg | Pulse: ${pulse || 'N/A'}\nClassification (ACC/AHA): ${status}\nClinical Remark: Advised home BP logging protocol to confirm baseline.`
+      };
+    }
+
+    function interpretHemoglobin(val, unit, sex, age) {
+      let gdl = unit === 'percent' ? (val / 100) * 14.5 : val;
+      const minNormal = sex === 'male' ? 13.8 : 12.1;
+      const maxNormal = sex === 'male' ? 17.2 : 15.1;
+      const isDe = currentLang === 'de';
+
+      let status = gdl < minNormal ? (isDe ? 'Unter Referenzbereich (Anämie-Signal)' : 'Below Target Range (Low Hb)') :
+                   gdl <= maxNormal ? (isDe ? 'Hämoglobin im Normbereich' : 'Normal Hemoglobin Target') :
+                   (isDe ? 'Über Referenzbereich (Erhöht)' : 'Above Target Range (High Hb)');
+
+      let pillBg = gdl < minNormal ? 'bg-sky-600 text-white' : gdl <= maxNormal ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white';
+
+      const patientId = isAnonymized ? 'ANONYMOUS' : `${sex.toUpperCase()}, Age ${age}`;
+
+      return {
+        title: isDe ? 'Hämoglobin-Interpretation' : 'Hemoglobin Concentration Interpretation',
+        status: status,
+        pillBg: pillBg,
+        pinPercent: Math.min(Math.max(((gdl - 8) / 12) * 100, 10), 95),
+        rangeMinText: `${minNormal} g/dL`,
+        rangeMaxText: `${maxNormal} g/dL`,
+        baselineText: isDe ? `Messwert: ${gdl.toFixed(1)} g/dL ${unit === 'percent' ? `(umgerechnet von ${val}% Sahli)` : ''}. Normbereich (${sex}): ${minNormal}–${maxNormal} g/dL.` : `Result: ${gdl.toFixed(1)} g/dL ${unit === 'percent' ? `(converted from ${val}% Sahli)` : ''}. Standard range for adult ${sex}s: ${minNormal}–${maxNormal} g/dL.`,
+        contextText: isDe 
+          ? `Hämoglobin ist das eisenhaltige Eiweiß in den roten Blutkörperchen, das Sauerstoff im Körper verteilt. Wichtiger Hinweis: Referenzwerte variieren je nach Geschlecht, Schwangerschaft, Raucherstatus, Hydratation oder Aufenthalt in höheren Berglagen.` 
+          : `Hemoglobin is the iron-rich protein in red blood cells that transports oxygen from your lungs. Key Note: Normal levels can naturally vary based on biological sex, pregnancy, hydration, smoking habits, or living at higher altitudes.`,
+        questions: isDe ? [
+          "Sollten wir weitere Werte wie Ferritin, Eisen oder Vitamin B12 überprüfen?",
+          "Könnten meine aktuellen Symptome (wie Müdigkeit) damit zusammenhängen?",
+          "Wie vergleicht sich dieser Wert mit meinen früheren Laborbefunden?"
+        ] : [
+          "Does this suggest evaluating iron storage (Ferritin) or Vitamin B12 levels?",
+          "Are my current symptoms (such as fatigue or endurance) related to this result?",
+          "How does this result compare to my previous baseline lab trends?"
+        ],
+        ehrNote: `MIVVO CLINICAL SUMMARY - HEMOGLOBIN (Hb)\nPatient: ${patientId}\nHb Level: ${gdl.toFixed(1)} g/dL [Raw input: ${val} ${unit}]\nTarget Reference Range: ${minNormal}-${maxNormal} g/dL\nInterpretation: ${status}`
+      };
+    }
+
+    function interpretGlucose(val, sex, age) {
+      const isDe = currentLang === 'de';
+      let status = val < 70 ? (isDe ? 'Hypoglykämie (Niedriger Blutzucker)' : 'Hypoglycemia (Low Blood Sugar)') :
+                   val <= 99 ? (isDe ? 'Normaler Nüchternblutzucker' : 'Normal Fasting Glucose') :
+                   val <= 125 ? (isDe ? 'Prädiabetes (Leicht Erhöht)' : 'Prediabetes Range') :
+                   (isDe ? 'Erhöhter Blutzucker (Diabetes-Signal)' : 'Elevated Fasting Glucose');
+
+      let pillBg = val < 70 ? 'bg-sky-600 text-white' : val <= 99 ? 'bg-emerald-600 text-white' : val <= 125 ? 'bg-amber-600 text-white' : 'bg-rose-600 text-white';
+
+      const patientId = isAnonymized ? 'ANONYMOUS' : `${sex.toUpperCase()}, Age ${age}`;
+
+      return {
+        title: isDe ? 'Nüchternblutzucker-Interpretation' : 'Fasting Glucose Interpretation',
+        status: status,
+        pillBg: pillBg,
+        pinPercent: Math.min(Math.max(((val - 50) / 150) * 100, 10), 95),
+        rangeMinText: '70 mg/dL',
+        rangeMaxText: '100 mg/dL',
+        baselineText: isDe ? `Ergebnis: ${val} mg/dL (Nüchtern). Zielwert: 70–99 mg/dL.` : `Result: ${val} mg/dL (Fasting). Target baseline: 70–99 mg/dL.`,
+        contextText: isDe 
+          ? `Der Nüchternblutzucker misst die Glukosemenge im Blut nach einer mindestens 8–12-stündigen Nahrungskarenz. Wichtiger Hinweis: Dieser Wert muss zwingend im nüchternen Zustand gemessen werden. Wenn vorab Nahrung aufgenommen wurde, verschieben sich die Grenzwerte deutlich.` 
+          : `Fasting blood glucose measures sugar concentration after an 8–12 hour fast. Key Note: Accurate evaluation requires a strict fasting state. If food or caloric beverages were consumed prior to testing, standard fasting thresholds do not apply.`,
+        questions: isDe ? [
+          "Sollten wir den HbA1c-Wert (Langzeitzucker) zur Bestätigung messen?",
+          "Welche Ernährungs- und Bewegungsgewohnheiten unterstützen stabile Blutzuckerwerte?"
+        ] : [
+          "Should we test my HbA1c (long-term average blood sugar) for confirmation?",
+          "What dietary or physical activity habits best support balanced blood glucose?"
+        ],
+        ehrNote: `MIVVO CLINICAL SUMMARY - FASTING GLUCOSE\nPatient: ${patientId}\nGlucose: ${val} mg/dL (Confirmed Fasting State)\nBaseline Target: 70-99 mg/dL\nInterpretation: ${status}`
+      };
+    }
+
+    function interpretCreatinine(val, sex, age) {
+      const minNormal = sex === 'male' ? 0.7 : 0.5;
+      const maxNormal = sex === 'male' ? 1.3 : 1.1;
+      const isDe = currentLang === 'de';
+
+      let status = val < minNormal ? (isDe ? 'Niedriger Kreatininwert' : 'Below Standard Range') :
+                   val <= maxNormal ? (isDe ? 'Optimaler Nierenwert (Normal)' : 'Normal Kidney Function Marker') :
+                   (isDe ? 'Erhöhtes Kreatinin (Nierenbelastung)' : 'Elevated Serum Creatinine');
+
+      let pillBg = val < minNormal ? 'bg-sky-600 text-white' : val <= maxNormal ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white';
+
+      const patientId = isAnonymized ? 'ANONYMOUS' : `${sex.toUpperCase()}, Age ${age}`;
+
+      return {
+        title: isDe ? 'Serum-Kreatinin & Nierenfunktion' : 'Serum Creatinine & eGFR Interpretation',
+        status: status,
+        pillBg: pillBg,
+        pinPercent: Math.min(Math.max(((val - 0.3) / 2.0) * 100, 10), 95),
+        rangeMinText: `${minNormal} mg/dL`,
+        rangeMaxText: `${maxNormal} mg/dL`,
+        baselineText: isDe ? `Ergebnis: ${val} mg/dL. Normbereich (${sex}): ${minNormal}–${maxNormal} mg/dL.` : `Result: ${val} mg/dL. Standard range for adult ${sex}s: ${minNormal}–${maxNormal} g/dL.`,
+        contextText: isDe 
+          ? `Kreatinin ist ein Abfallprodukt des Muskelstoffwechsels. Wichtiger Hinweis: Ärzte beurteilen Kreatinin üblicherweise zusammen mit der geschätzten Nierenfilterrate (eGFR). Die eGFR berechnet die tatsächliche Reinigungsleistung der Nieren unter Berücksichtigung von Alter, Geschlecht und Muskelmasse.` 
+          : `Creatinine is a natural waste product of muscle activity filtered by the kidneys. Key Note: Clinicians evaluate creatinine together with the estimated Glomerular Filtration Rate (eGFR). The eGFR provides a more complete picture of kidney filtration performance adjusted for age, sex, and muscle mass.`,
+        questions: isDe ? [
+          "Wie hoch ist meine geschätzte Nierenfilterrate (eGFR) im Befund?",
+          "Könnten Flüssigkeitsmangel oder intensiver Sport diesen Wert beeinflusst haben?"
+        ] : [
+          "What is my calculated estimated GFR (eGFR) kidney filtration rate?",
+          "Could hydration levels or recent intense exercise have influenced this result?"
+        ],
+        ehrNote: `MIVVO CLINICAL SUMMARY - SERUM CREATININE\nPatient: ${patientId}\nSerum Creatinine: ${val} mg/dL\nReference Target: ${minNormal}-${maxNormal} mg/dL\nInterpretation: ${status}\nClinical Remark: Correlate with calculated eGFR and hydration status.`
+      };
+    }
+
+    function interpretCholesterol(val, sex, age) {
+      const isDe = currentLang === 'de';
+      let status = val < 130 ? (isDe ? 'Niedriges Cholesterin' : 'Low Total Cholesterol') :
+                   val <= 200 ? (isDe ? 'Optimales Gesamtcholesterin' : 'Optimal Total Cholesterol') :
+                   val <= 239 ? (isDe ? 'Grenzbereich (Leicht Erhöht)' : 'Borderline Elevated Cholesterol') :
+                   (isDe ? 'Erhöhter Cholesterinspiegel' : 'Elevated Total Cholesterol');
+
+      let pillBg = val < 130 ? 'bg-sky-600 text-white' : val <= 200 ? 'bg-emerald-600 text-white' : val <= 239 ? 'bg-amber-600 text-white' : 'bg-rose-600 text-white';
+
+      const patientId = isAnonymized ? 'ANONYMOUS' : `${sex.toUpperCase()}, Age ${age}`;
+
+      return {
+        title: isDe ? 'Gesamtcholesterin-Interpretation' : 'Total Cholesterol Interpretation',
+        status: status,
+        pillBg: pillBg,
+        pinPercent: Math.min(Math.max(((val - 100) / 200) * 100, 10), 95),
+        rangeMinText: '< 200 mg/dL',
+        rangeMaxText: '> 240 mg/dL',
+        baselineText: isDe ? `Ergebnis: ${val} mg/dL. Empfohlener Zielbereich: <200 mg/dL.` : `Result: ${val} mg/dL. Standard recommended baseline <200 mg/dL.`,
+        contextText: isDe 
+          ? `Das Gesamtcholesterin bietet einen ersten Überblick über die Fettstoffe im Blut. Wichtiger Hinweis: Für eine vollständige kardiovaskuläre Beurteilung betrachten Ärzte meist das gesamte Lipidprofil – insbesondere HDL ('gutes' Cholesterin), LDL ('schlechtes' Cholesterin) und Triglyceride.` 
+          : `Total cholesterol provides a high-level snapshot of circulating blood lipids. Key Note: Total cholesterol is only one piece of the picture. For a comprehensive cardiovascular risk assessment, doctors typically evaluate a full lipid panel including HDL ('good'), LDL ('bad'), and Triglycerides.`,
+        questions: isDe ? [
+          "Sollten wir ein vollständiges Lipidprofil mit HDL, LDL und Triglyceriden erstellen?",
+          "Welche Ernährungsgewohnheiten unterstützen ein gesundes Lipidprofil?",
+          "Welche Rolle spielen familiäre Faktoren bei meinen Werten?"
+        ] : [
+          "Would you recommend evaluating full HDL, LDL, and Triglyceride fractions?",
+          "What dietary or lifestyle habits best support vascular health?",
+          "How do family history or individual risk factors influence my optimal target?"
+        ],
+        ehrNote: `MIVVO CLINICAL SUMMARY - CHOLESTEROL\nPatient: ${patientId}\nTotal Cholesterol: ${val} mg/dL\nReference Target: <200 mg/dL\nInterpretation: ${status}\nClinical Remark: Recommended complete lipid fractionation panel (HDL/LDL/Triglycerides).`
+      };
+    }
+
+    function renderOutputFramework(data) {
+      document.getElementById('selectionCard').classList.add('hidden');
+      document.getElementById('resultCard').classList.remove('hidden');
+
+      document.getElementById('resultMetaBadge').innerText = data.title;
+      document.getElementById('statusTitle').innerText = data.status;
+      
+      const pill = document.getElementById('statusPill');
+      pill.innerText = data.status;
+      pill.className = `self-start sm:self-auto px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider ${data.pillBg}`;
+
+      document.getElementById('rangeMin').innerText = `Min: ${data.rangeMinText}`;
+      document.getElementById('rangeMax').innerText = `Max: ${data.rangeMaxText}`;
+      document.getElementById('rangePin').style.left = `${data.pinPercent}%`;
+
+      document.getElementById('baselineText').innerText = data.baselineText;
+      document.getElementById('contextText').innerText = data.contextText;
+
+      const qList = document.getElementById('questionsList');
+      qList.innerHTML = '';
+      data.questions.forEach(q => {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-2.5 text-xs text-slate-300 bg-slate-950/50 p-3 rounded-xl border border-slate-800';
+        li.innerHTML = `<i class="fa-solid fa-circle-question text-teal-400 mt-0.5"></i><span>"${q}"</span>`;
+        qList.appendChild(li);
+      });
+
+      document.getElementById('ehrNoteText').innerText = data.ehrNote;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetInterpreter() {
+      document.getElementById('resultCard').classList.add('hidden');
+      document.getElementById('selectionCard').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function copyQuestions() {
+      const qElements = document.querySelectorAll('#questionsList span');
+      let textToCopy = "Questions for my Doctor (via Mivvo Interpret):\n";
+      qElements.forEach((el, index) => {
+        textToCopy += `${index + 1}. ${el.innerText.replace(/"/g, '')}\n`;
+      });
+
+      copyTextToClipboard(textToCopy);
+      const btnText = document.getElementById('copyQuestionsBtnText');
+      btnText.innerText = 'Copied!';
+      setTimeout(() => btnText.innerText = i18n[currentLang].copyQuestionsBtnText, 2000);
+    }
+
+    function copyEHRNote() {
+      const ehrText = document.getElementById('ehrNoteText').innerText;
+      copyTextToClipboard(ehrText);
+      const btnText = document.getElementById('copyNoteBtnText');
+      btnText.innerText = 'Copied!';
+      setTimeout(() => btnText.innerText = i18n[currentLang].copyNoteBtnText, 2000);
+    }
+
+    function copyTextToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupPWA();
+      setLanguage('en');
+    });
+  </script>
+</body>
+</html>
