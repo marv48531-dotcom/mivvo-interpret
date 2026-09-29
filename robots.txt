@@ -1,0 +1,4 @@
+User-Agent: *
+Allow: /
+
+Sitemap: https://marv48531-dotcom.github.io/mivvo-interpret/sitemap.xml
